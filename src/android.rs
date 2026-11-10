@@ -2,11 +2,24 @@ use jni::objects::{JObject, JString, JValue};
 use jni::JavaVM;
 use std::sync::OnceLock;
 
-// JVM сохраняется через ndk-glue при инициализации
+// Храним JVM
 static JVM: OnceLock<JavaVM> = OnceLock::new();
+// Храним Activity (используем Mutex, так как JObject не Send/Sync по умолчанию)
+static ACTIVITY: OnceLock<std::sync::Mutex<Option<JObject<'static>>>> = OnceLock::new();
 
 pub fn set_jvm(vm: JavaVM) {
     let _ = JVM.set(vm);
+}
+
+pub fn set_activity(activity: JObject<'static>) {
+    let lock = ACTIVITY.get_or_init(|| std::sync::Mutex::new(None));
+    *lock.lock().unwrap() = Some(activity);
+}
+
+pub fn get_activity() -> Option<JObject<'static>> {
+    let lock = ACTIVITY.get()?;
+    let guard = lock.lock().unwrap();
+    guard.as_ref().map(|obj| unsafe { JObject::from_raw(obj.as_raw()) })
 }
 
 /// Открывает видео URI через системный Intent ACTION_VIEW.
@@ -15,11 +28,7 @@ pub fn open_video(uri: &str) -> Result<(), String> {
     let mut env = vm.attach_current_thread().map_err(|e| e.to_string())?;
 
     // Получаем текущую Activity
-    let activity = crate::android::get_activity();
-    let activity = match activity {
-        Some(a) => a,
-        None => return Err("Activity not ready".into()),
-    };
+    let activity = get_activity().ok_or("Activity not ready")?;
 
     // Uri.parse(uri)
     let uri_class = env.find_class("android/net/Uri").map_err(|e| e.to_string())?;
@@ -69,19 +78,4 @@ pub fn open_video(uri: &str) -> Result<(), String> {
     .map_err(|e| format!("startActivity failed: {e}"))?;
 
     Ok(())
-}
-
-/// Заглушка — переопределяется в main.rs (через глобальную переменную).
-pub fn get_activity() -> Option<JObject<'static>> {
-    // Заполняется через android_main
-    unsafe { ACTIVITY.get().copied() }
-}
-
-static mut ACTIVITY: Option<JObject<'static>> = None;
-
-/// Вызывается из main.rs при инициализации Activity
-pub fn set_activity(activity: JObject<'static>) {
-    unsafe {
-        ACTIVITY = Some(activity);
-    }
 }
