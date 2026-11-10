@@ -27,15 +27,10 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      # УДАЛЕН шаг "Setup Android SDK", так как он ломается на 404
-
       - name: Install SDK components
         run: |
-          # Принудительно используем sdkmanager из предустановленного SDK
           export ANDROID_HOME=/usr/local/lib/android/sdk
           export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH
-          
-          # Устанавливаем нужные пакеты (принимаем лицензии через yes)
           yes | sdkmanager --install \
             "platforms;android-${{ env.ANDROID_API }}" \
             "build-tools;${{ env.ANDROID_BUILD_TOOLS }}" \
@@ -127,21 +122,23 @@ jobs:
           }
           EOF
 
-      - name: Setup Gradle wrapper
+      - name: Download Gradle Wrapper
         run: |
           cd android
-          gradle wrapper --gradle-version 8.5 || {
-            mkdir -p gradle/wrapper
-            curl -sSL -o gradle/wrapper/gradle-wrapper.jar \
-              https://raw.githubusercontent.com/gradle/gradle/v8.5.0/gradle/wrapper/gradle-wrapper.jar
-            cat > gradle/wrapper/gradle-wrapper.properties <<'EOF'
+          # Качаем сам скрипт gradlew и его jar
+          curl -sSL -o gradlew https://raw.githubusercontent.com/gradle/gradle/v8.5.0/gradlew
+          chmod +x gradlew
+          
+          mkdir -p gradle/wrapper
+          curl -sSL -o gradle/wrapper/gradle-wrapper.jar https://raw.githubusercontent.com/gradle/gradle/v8.5.0/gradle/wrapper/gradle-wrapper.jar
+          
+          cat > gradle/wrapper/gradle-wrapper.properties <<'EOF'
           distributionBase=GRADLE_USER_HOME
           distributionPath=wrapper/dists
           distributionUrl=https\://services.gradle.org/distributions/gradle-8.5-bin.zip
           zipStoreBase=GRADLE_USER_HOME
           zipStorePath=wrapper/dists
           EOF
-          }
 
       - name: Build APK
         working-directory: android
