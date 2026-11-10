@@ -2,22 +2,35 @@
 name = "youpipe"
 version = "0.1.0"
 edition = "2021"
-description = "YouPipe — video viewer app"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+name = "youpipe"
+
+[[bin]]
+name = "youpipe"
+path = "src/main.rs"
+required-features = ["desktop"]
+
+[features]
+default = ["desktop"]
+desktop = ["eframe", "gstreamer", "gstreamer-video", "rfd"]
 
 [dependencies]
-eframe = { version = "0.27", default-features = false, features = ["glow", "default_fonts"] }
 egui = "0.27"
-gstreamer = "0.22"
-gstreamer-video = "0.22"
-gstreamer-app = "0.22"
 log = "0.4"
 env_logger = "0.11"
-rfd = "0.14"
+
+# Desktop-only
+eframe = { version = "0.27", optional = true, default-features = false, features = ["glow", "default_fonts"] }
+gstreamer = { version = "0.22", optional = true }
+gstreamer-video = { version = "0.22", optional = true }
+rfd = { version = "0.14", optional = true }
 
 [target.'cfg(target_os = "android")'.dependencies]
 android-activity = { version = "0.5", features = ["native-activity"] }
 ndk = "0.8"
-ndk-glue = "0.7"
+ndk-sys = "0.5"
 jni = "0.21"
 
 [profile.release]
@@ -25,3 +38,4 @@ opt-level = "z"
 lto = true
 codegen-units = 1
 strip = true
+panic = "abort"
