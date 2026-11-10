@@ -29,10 +29,15 @@ jobs:
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          cmdline-tools-version: 9.0
+          accept-android-sdk-licenses: true
+          log-accepted-android-sdk-licenses: false
+          packages: ''
 
       - name: Install SDK components
         run: |
-          sdkmanager --install \
+          yes | sdkmanager --install \
             "platforms;android-${{ env.ANDROID_API }}" \
             "build-tools;${{ env.ANDROID_BUILD_TOOLS }}" \
             "ndk;${{ env.NDK_VERSION }}" \
@@ -49,33 +54,33 @@ jobs:
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
 
-      - name: Build native library (aarch64)
+      - name: Build native libraries (all ABIs)
         run: |
+          mkdir -p android/app/src/main/jniLibs
+          
           cargo ndk \
             --target aarch64-linux-android \
             --platform ${{ env.ANDROID_API }} \
             -o android/app/src/main/jniLibs/arm64-v8a \
-            build --release
+            build --release --no-default-features
 
-      - name: Build native library (armv7)
-        run: |
           cargo ndk \
             --target armv7-linux-androideabi \
             --platform ${{ env.ANDROID_API }} \
             -o android/app/src/main/jniLibs/armeabi-v7a \
-            build --release
+            build --release --no-default-features
 
-      - name: Build native library (x86_64)
-        run: |
           cargo ndk \
             --target x86_64-linux-android \
             --platform ${{ env.ANDROID_API }} \
             -o android/app/src/main/jniLibs/x86_64 \
-            build --release
+            build --release --no-default-features
 
       - name: Setup Gradle project
         run: |
-          mkdir -p android/app/src/main/jniLibs
+          mkdir -p android/app/src/main
+          cp android/AndroidManifest.xml android/app/src/main/AndroidManifest.xml
+
           cat > android/settings.gradle <<'EOF'
           rootProject.name = "YouPipe"
           include ":app"
@@ -123,13 +128,10 @@ jobs:
           }
           EOF
 
-          cp android/AndroidManifest.xml android/app/src/main/AndroidManifest.xml
-
       - name: Setup Gradle wrapper
         run: |
           cd android
           gradle wrapper --gradle-version 8.5 || {
-            # если gradle не установлен, качаем wrapper вручную
             mkdir -p gradle/wrapper
             curl -sSL -o gradle/wrapper/gradle-wrapper.jar \
               https://raw.githubusercontent.com/gradle/gradle/v8.5.0/gradle/wrapper/gradle-wrapper.jar
@@ -144,7 +146,7 @@ jobs:
 
       - name: Build APK
         working-directory: android
-        run: ./gradlew :app:assembleRelease --no-daemon
+        run: ./gradlew :app:assembleRelease --no-daemon --stacktrace
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
@@ -152,12 +154,3 @@ jobs:
           name: youpipe-apk
           path: android/app/build/outputs/apk/release/*.apk
           retention-days: 30
-
-      - name: Upload debug APK
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: youpipe-logs
-          path: |
-            android/app/build/outputs/logs/*.txt
-          if-no-files-found: ignore
