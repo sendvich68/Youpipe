@@ -1,7 +1,6 @@
 #![cfg_attr(target_os = "android", no_main)]
 
 use youpipe::app::YouPipeApp;
-use std::sync::OnceLock;
 
 #[cfg(not(target_os = "android"))]
 fn main() -> eframe::Result<()> {
@@ -33,13 +32,12 @@ mod android_entry {
     pub fn android_main(app: AndroidApp) {
         env_logger::init();
 
-        // Сохраняем JVM и Activity
+        // Сохраняем JVM
         let vm = unsafe { JavaVM::from_raw(app.vm_as_ptr() as *mut _) }.unwrap();
         youpipe::android::set_jvm(vm);
 
-        let activity = unsafe {
-            JObject::from_raw(app.activity_as_ptr() as *mut _)
-        };
+        // Сохраняем Activity
+        let activity = unsafe { JObject::from_raw(app.activity_as_ptr() as *mut _) };
         youpipe::android::set_activity(activity);
 
         // Инициализируем наше состояние
@@ -55,7 +53,6 @@ mod android_entry {
                 match event {
                     PollEvent::Main(MainEvent::InitWindow { .. }) => {
                         // Как только окно создано — запускаем видео!
-                        // В Android это отправит Intent во внешний плеер.
                         let _ = youpipe::android::open_video(&state.video_url);
                     }
                     PollEvent::Main(MainEvent::Destroy) => return,
