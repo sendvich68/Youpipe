@@ -27,17 +27,15 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-        with:
-          # Указываем рабочую версию, чтобы не было 404
-          cmdline-tools-version: 12.0
-          accept-android-sdk-licenses: true
-          log-accepted-android-sdk-licenses: false
-          packages: ''
+      # УДАЛЕН шаг "Setup Android SDK", так как он ломается на 404
 
       - name: Install SDK components
         run: |
+          # Принудительно используем sdkmanager из предустановленного SDK
+          export ANDROID_HOME=/usr/local/lib/android/sdk
+          export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH
+          
+          # Устанавливаем нужные пакеты (принимаем лицензии через yes)
           yes | sdkmanager --install \
             "platforms;android-${{ env.ANDROID_API }}" \
             "build-tools;${{ env.ANDROID_BUILD_TOOLS }}" \
